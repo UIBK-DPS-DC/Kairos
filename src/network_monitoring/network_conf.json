@@ -1,0 +1,33 @@
+{
+  "_comment": "Medians of 18 pairwise probes and 258 upload-RTT probes from the cluster runs of 2026-10-29/30. Providers: ec47 cloud-pl, e84c Cloud, af63 uibk, 7fb8 Cloud-SK.",
+  "pairwise_read_latency_ms": {
+    "ec4761ab47ecda487c46edd328179824chc3bd": {
+      "e84cb72f48b96dcf7db937897b36f12ache7b5": 1098,
+      "af63236ac5942dbc22bd9159a8154c8ach6020": 729,
+      "7fb875c772c0fe9fe6484db878831821ch85cf": 709
+    },
+    "e84cb72f48b96dcf7db937897b36f12ache7b5": {
+      "ec4761ab47ecda487c46edd328179824chc3bd": 278,
+      "af63236ac5942dbc22bd9159a8154c8ach6020": 222,
+      "7fb875c772c0fe9fe6484db878831821ch85cf": 212
+    },
+    "af63236ac5942dbc22bd9159a8154c8ach6020": {
+      "ec4761ab47ecda487c46edd328179824chc3bd": 259,
+      "e84cb72f48b96dcf7db937897b36f12ache7b5": 213,
+      "7fb875c772c0fe9fe6484db878831821ch85cf": 144
+    },
+    "7fb875c772c0fe9fe6484db878831821ch85cf": {
+      "ec4761ab47ecda487c46edd328179824chc3bd": 262,
+      "e84cb72f48b96dcf7db937897b36f12ache7b5": 238,
+      "af63236ac5942dbc22bd9159a8154c8ach6020": 181
+    }
+  },
+  "upload_rtt_ms": {
+    "ec4761ab47ecda487c46edd328179824chc3bd": 1330,
+    "e84cb72f48b96dcf7db937897b36f12ache7b5": 423,
+    "af63236ac5942dbc22bd9159a8154c8ach6020": 430,
+    "7fb875c772c0fe9fe6484db878831821ch85cf": 426
+  },
+  "replication_overhead_seconds": 10,
+  "replication_bandwidth_bytes_per_second": 20000000
+}

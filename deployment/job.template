@@ -1,0 +1,126 @@
+---
+# Job: One-off data placement predictor job — TEMPLATE
+#
+# Copy this file to job.yaml and adjust image tag and arguments.
+# job.yaml is excluded from git via .gitignore (deployment/*.yaml).
+#
+kind: Job
+metadata:
+  name: predictor-placement-job
+  namespace: default   # Change if deploying to a different namespace
+  labels:
+    app: predictor
+    component: placement
+spec:
+  # Clean up completed job after 5 minutes
+  ttlSecondsAfterFinished: 300
+
+  # Retry once on failure, then give up
+  backoffLimit: 1
+
+  # Timeout after 1 hour
+  activeDeadlineSeconds: 3600
+
+  template:
+    metadata:
+      labels:
+        app: predictor
+        component: placement
+    spec:
+      serviceAccountName: predictor
+      restartPolicy: Never
+
+      containers:
+      - name: predictor
+        # Replace with your image / registry if not using Docker Hub
+        image: <DOCKER_HUB_USER>/airflow-onedata-predictor:latest
+        imagePullPolicy: Always
+
+        args:
+        - "--log-level"
+        - "INFO"
+
+        # Environment variables from ConfigMap (non-sensitive defaults)
+        envFrom:
+        - configMapRef:
+            name: predictor-config
+
+        # Sensitive values injected from Secret
+        env:
+        - name: ONEDATA_SPACE_ID
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: space-id
+        - name: ONEDATA_TOKEN_PROVIDER
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: token-provider
+        - name: ONEDATA_TOKEN_ZONE
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: token-zone
+        - name: DEVNULL_SPACE_ID
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: devnull-space-id
+        - name: AIRFLOW_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: airflow-username
+        - name: AIRFLOW_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: airflow-password
+        - name: AIRFLOW_API_SERVICE
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: airflow-api-service
+
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: kairos-data
+          mountPath: /data
+
+        startupProbe:
+          exec:
+            command:
+            - python
+            - "-c"
+            - "from src.main import main; print('OK')"
+          initialDelaySeconds: 5
+          failureThreshold: 3
+          periodSeconds: 5
+          timeoutSeconds: 15
+
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: kairos-data
+        persistentVolumeClaim:
+          claimName: kairos-sqlite-pvc
+

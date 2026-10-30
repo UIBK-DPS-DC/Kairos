@@ -1,0 +1,30 @@
+---
+# ConfigMap: Non-sensitive default configuration
+# Copy this file to configmap.yaml and adjust values for your cluster.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: predictor-config
+  namespace: default   # Change if deploying to a different namespace
+  labels:
+    app: predictor
+    component: config
+data:
+
+  # Path for the SQLite database inside the container (must lie on the /data volumeMount)
+  DATABASE_URL: "/data/kairos.sqlite3"
+
+  # Prometheus: cluster-internal service DNS
+  # Find with: kubectl get svc -n <prometheus-namespace>
+  PROMETHEUS_HOST: "http://<prometheus-service-name>:<port>"
+
+  # Onedata: public Onezone host
+  ONEDATA_ONEZONE_HOST: "<onezone-hostname>"   # e.g. onezone.example.org
+
+  # Application defaults (override via env or CLI flags)
+  OPTIMIZATION_LEVEL: "dag"  # dag | task (task also reacts to Zenoh task interrupts)
+  MONITOR_LOOKBACK: "5"      # minutes of history to query
+  PAIRWISE_LATENCY_REFRESH_CYCLES: "10"  # cycles between provider-to-provider latency measurements; 0 = never
+  # Fixed network values instead of probes (path inside the image); remove to measure the network
+  KAIROS_NETWORK_CONFIG: "src/network_monitoring/network_conf.json"
+

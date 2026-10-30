@@ -1,0 +1,17 @@
+# Copy this file to persistent_volume_claim.yaml and adjust the configuration as needed.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kairos-sqlite-pvc
+  namespace: default   # Change if deploying to a different namespace
+  labels:
+    app: predictor
+    component: placement
+spec:
+  accessModes:
+    - ReadWriteOnce
+  # storageClassName: ""   # Uncomment and set if your cluster requires a specific StorageClass
+  resources:
+    requests:
+      storage: 1Gi         # Increase if you expect many DAG executions / large history
+

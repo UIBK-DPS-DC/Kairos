@@ -1,0 +1,10 @@
+# Copy this file to kustomization.yaml and adjust image tag and arguments.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: default   # Change if deploying to a different namespace
+resources:
+  - secret.yaml
+  - configmap.yaml
+  - persistent_volume_claim.yaml
+  - serviceaccount.yaml
+

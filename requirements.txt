@@ -1,0 +1,12 @@
+# Core / Runtime Dependencies
+requests==2.32.5
+python-dotenv==1.2.2
+numpy==2.4.3
+pandas==2.2.3
+scikit-learn==1.9.0
+eclipse-zenoh==1.9.0
+lightgbm==4.6.0
+
+# Testing & Coverage Dependencies
+pytest==9.0.2
+pytest-cov==7.0.0

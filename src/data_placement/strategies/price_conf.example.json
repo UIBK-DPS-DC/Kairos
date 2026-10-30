@@ -1,0 +1,10 @@
+{
+    "<provider-id-a>": {
+        "static": 0.00003,
+        "dynamic": 0.00003
+    },
+    "<provider-id-b>": {
+        "static": 0.00003,
+        "dynamic": 0.00003
+    }
+}

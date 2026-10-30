@@ -1,0 +1,80 @@
+# Git
+.git
+.gitignore
+.gitmodules
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Testing
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Documentation
+docs/_build/
+
+.DS_Store
+.env
+.env.local
+
+# structure not to put in image
+usecases/
+docs/
+tests/
+dev/
+deployment/
+
+# project metadata and local docs not needed at runtime
+README.md
+TESTING.md
+THIRD_PARTY_NOTICES.md
+LICENSE
+files_on_servers.txt
+pytest.ini
+.sh
