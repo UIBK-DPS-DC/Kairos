@@ -1,3 +1,7 @@
+import json
+import logging
+import os
+
 import numpy as np
 import pandas as pd
 from datetime import datetime, timezone
@@ -10,6 +14,11 @@ import src.dag_prediction.fallback_model as fallback_model
 import src.dag_prediction.global_models as global_models
 import src.dag_prediction.setar_tree as setar
 import src.dag_prediction.space_models as space
+
+logger = logging.getLogger(__name__)
+
+# Starts the log line of every split prediction; the evaluation reads these lines.
+PREDICTION_LOG_MARKER = "KAIROS_PREDICTION"
 
 SplitTimeModel = Literal["ridge", "setar", "linear", "lightgbm"]
 History = List[tuple[datetime, str]]  # chronological (timestamp, provider) pairs
@@ -93,6 +102,8 @@ class SplitPredictor:
       current provider context, the fallback otherwise.
     The fallback also fills in whenever the own models give no prediction.
     Without a fallback the own models are always used.
+    With ``fallback_only`` the own models are never used, for evaluating the
+    fallback on its own.
     """
 
     def __init__(
@@ -101,11 +112,15 @@ class SplitPredictor:
         fallback: Optional[dict] = None,
         min_history: int = 10,
         number_of_inference_timestamps: int = 5,
+        fallback_only: bool = False,
     ):
+        if fallback_only and fallback is None:
+            raise ValueError("fallback_only needs a fallback model")
         self.models = models
         self.fallback = fallback
         self.min_history = min_history
         self.number_of_inference_timestamps = number_of_inference_timestamps
+        self.fallback_only = fallback_only
 
     def predict(
         self, key: str, history: History, now=None, at=None
@@ -141,6 +156,8 @@ class SplitPredictor:
         return TaskPrediction(predicted_next_access=next_access, predicted_provider_id=provider)
 
     def _time(self, key: str, times: list, now) -> Optional[datetime]:
+        if self.fallback_only:
+            return fallback_model.predict_next_time(self.fallback, times, now)
         if self.fallback is None:
             return self._own_time(key, times, now)
         return (
@@ -148,6 +165,8 @@ class SplitPredictor:
         ) or fallback_model.predict_next_time(self.fallback, times, now)
 
     def _next_provider(self, key: str, providers: List[str]) -> Optional[str]:
+        if self.fallback_only:
+            return fallback_model.predict_next_provider(self.fallback, providers)
         if self.fallback is None:
             return space.predict_markov(self.models["space"], key, providers)
         return space.predict_markov(
@@ -192,6 +211,9 @@ class TaskPredictor:
             (fallback_model.json) for tasks with little history of their own.
         min_history: ``"split"`` only: executions a task needs before its own
             models replace the fallback.
+
+    ``"split"`` predicts with the fallback alone when the environment variable
+    ``KAIROS_FALLBACK_ONLY`` is ``"true"``.
     """
 
     def __init__(
@@ -216,11 +238,13 @@ class TaskPredictor:
                 history = self._read_task_history(t.id, t.dag_id)
                 if history:
                     histories[f"{t.dag_id}.{t.id}"] = history
+            fallback_only = os.getenv("KAIROS_FALLBACK_ONLY", "").strip().lower() == "true"
             self._split_predictor = SplitPredictor(
                 train_split_models(histories, split_time_model),
-                fallback=fallback_model.load_fallback() if use_fallback else None,
+                fallback=fallback_model.load_fallback() if use_fallback or fallback_only else None,
                 min_history=min_history,
                 number_of_inference_timestamps=number_of_inference_timestamps,
+                fallback_only=fallback_only,
             )
         else:
             self.model = None  # LinearRegressionPredictor does not use a pre-trained model
@@ -276,9 +300,24 @@ class TaskPredictor:
         )
 
     def _predict_split(self, task_id: str, dag_id: str, at=None, now=None) -> Optional[TaskPrediction]:
-        return self._split_predictor.predict(
+        prediction = self._split_predictor.predict(
             f"{dag_id}.{task_id}", self._read_task_history(task_id, dag_id), now=now, at=at
         )
+        if prediction is not None:
+            logger.info(
+                "%s %s",
+                PREDICTION_LOG_MARKER,
+                json.dumps(
+                    {
+                        "made_at": datetime.now(timezone.utc).isoformat(),
+                        "dag_id": dag_id,
+                        "task_id": task_id,
+                        "predicted_time": pd.Timestamp(prediction.predicted_next_access).isoformat(),
+                        "predicted_provider": prediction.predicted_provider_id,
+                    }
+                ),
+            )
+        return prediction
 
     def predict_next_task_execution_on_provider(
         self, task_id: str, dag_id: str, provider_id: str

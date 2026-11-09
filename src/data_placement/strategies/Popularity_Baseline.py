@@ -32,13 +32,17 @@ class Popularity_Baseline(IPlacement):
         #     self.zone_manager, self.provider_managers
         # )
         self.latency_map = None
-        self.provider_ids = list(self.provider_managers.keys())
+        # Fixed order: the rows and columns of self.L follow it.
+        self.provider_ids = ["Cloud", "uibk", "Cloud-SK"]
+        missing_providers = set(self.provider_ids) - set(self.provider_managers)
+        if missing_providers:
+            raise ValueError(f"No manager for providers: {sorted(missing_providers)}")
         self.provider_api_ids = {
             provider.name or provider.provider_id: provider.provider_id
             for provider in self.zone_manager.list_providers()
         }
         # self.L = self._build_shortest_path_matrix() # change for hardcoded matrix because it takes quite long
-        self.L = [[0.0, 17033.26329133324, 22210.319396333336, 17045.19473899988], [20204.92541633318, 0.0, 21875.62502966663, 20210.39367066669], [21732.91304899991, 16713.31890133327, 0.0, 21727.101789999928], [16772.7249836668, 16786.743021333376, 16777.690489666536, 0.0]]
+        self.L = [[0.0, 21875.62502966663, 20210.39367066669], [16713.31890133327, 0.0, 21727.101789999928], [16786.743021333376, 16777.690489666536, 0.0]]
         logger.info(
             "Popularity baseline shortest-path matrix (copy into code):\n"
             "provider_ids = %s\n"

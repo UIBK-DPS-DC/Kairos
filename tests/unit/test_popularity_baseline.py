@@ -5,6 +5,31 @@ import pytest
 from src.data_placement.strategies.Popularity_Baseline import Popularity_Baseline
 
 
+def _baseline(provider_names):
+    zone_manager = SimpleNamespace(list_providers=lambda: [])
+    return Popularity_Baseline(
+        provider_managers={name: SimpleNamespace() for name in provider_names},
+        zone_manager=zone_manager,
+        onedata_manager=SimpleNamespace(),
+    )
+
+
+@pytest.mark.unit
+def test_baseline_only_places_on_the_three_matrix_providers():
+    strategy = _baseline(["cloud-pl", "Cloud", "uibk", "Cloud-SK"])
+
+    assert strategy.provider_ids == ["Cloud", "uibk", "Cloud-SK"]
+    assert [len(row) for row in strategy.L] == [3, 3, 3]
+    assert all(strategy.L[i][i] == 0.0 for i in range(3))
+    assert set(strategy.calculate_coordinates_providers()) == set(strategy.provider_ids)
+
+
+@pytest.mark.unit
+def test_baseline_requires_a_manager_for_every_matrix_provider():
+    with pytest.raises(ValueError, match="Cloud-SK"):
+        _baseline(["Cloud", "uibk"])
+
+
 @pytest.mark.unit
 def test_reconcile_file_placement_schedules_replication_and_eviction():
     class Distribution:

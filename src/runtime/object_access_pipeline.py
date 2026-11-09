@@ -251,6 +251,12 @@ def _build_onedata_managers() -> (
         logger.exception("Failed to list providers for one of the available tokens")
         providers = []
         return 1
+    # Comma-separated provider names that get no manager, so nothing is placed there.
+    excluded_providers = {
+        name.strip() for name in os.getenv("EXCLUDED_PROVIDERS", "").split(",") if name.strip()
+    }
+    if excluded_providers:
+        logger.info("Excluding providers: %s", sorted(excluded_providers))
     provider_managers: Dict[str, OnedataDataManager] = {}
     for token in provider_tokens:
         token_cfg = OnedataDataManager.load_config(
@@ -261,7 +267,7 @@ def _build_onedata_managers() -> (
 
         for provider in providers:
             manager_key = provider.name or provider.provider_id
-            if manager_key in provider_managers:
+            if manager_key in provider_managers or manager_key in excluded_providers:
                 continue
 
             provider_managers[manager_key] = OnedataDataManager.build_storage_manager(

@@ -1,3 +1,4 @@
+import json
 import time
 from datetime import datetime, timedelta
 
@@ -147,3 +148,81 @@ def test_split_predictor_rolls_provider_forward_over_unseen_runs(use_fallback):
     # Right after the last run, the next one is on "A".
     fresh = predictor.predict("dag_1.Task_1", history, now=last + timedelta(seconds=5))
     assert fresh.predicted_provider_id == "A"
+
+
+def _predictor_with_own_models_that_would_win(monkeypatch, **kwargs):
+    """Own models that always answer, far from what the fallback predicts."""
+    own_time = datetime(2030, 1, 1)
+    monkeypatch.setattr(
+        "src.dag_prediction.task_predictor.space.predict_markov",
+        lambda model, key, providers, backoff=True: "OWN",
+    )
+    predictor = SplitPredictor(
+        {"space": {}, "time_model": "ridge", "time": None}, fallback=load_fallback(), **kwargs
+    )
+    monkeypatch.setattr(predictor, "_own_time", lambda key, times, now: own_time)
+    return predictor, own_time
+
+
+@pytest.mark.unit
+def test_own_models_replace_the_fallback_by_default(monkeypatch):
+    last = datetime(2026, 1, 1, 12, 0, 0)
+    history = [(last - timedelta(seconds=180 * i), PROVIDERS[(14 - i) % 3]) for i in range(15)][::-1]
+    predictor, own_time = _predictor_with_own_models_that_would_win(monkeypatch)
+
+    prediction = predictor.predict("dag_1.Task_1", history, now=last)
+    assert prediction.predicted_next_access == own_time
+    assert prediction.predicted_provider_id == "OWN"
+
+
+@pytest.mark.unit
+def test_fallback_only_never_uses_own_models_however_long_the_history(monkeypatch):
+    last = datetime(2026, 1, 1, 12, 0, 0)
+    history = [(last - timedelta(seconds=180 * i), PROVIDERS[(14 - i) % 3]) for i in range(15)][::-1]
+    predictor, own_time = _predictor_with_own_models_that_would_win(monkeypatch, fallback_only=True)
+
+    prediction = predictor.predict("dag_1.Task_1", history, now=last)
+    assert prediction.predicted_next_access != own_time
+    assert prediction.predicted_provider_id in PROVIDERS
+
+
+@pytest.mark.unit
+def test_fallback_only_needs_a_fallback_model():
+    with pytest.raises(ValueError, match="fallback_only"):
+        SplitPredictor({"space": {}, "time_model": "ridge", "time": None}, fallback_only=True)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "value,expected",
+    [(None, False), ("false", False), ("", False), ("true", True), (" TRUE ", True)],
+)
+def test_fallback_only_is_read_from_the_environment(monkeypatch, value, expected):
+    if value is None:
+        monkeypatch.delenv("KAIROS_FALLBACK_ONLY", raising=False)
+    else:
+        monkeypatch.setenv("KAIROS_FALLBACK_ONLY", value)
+
+    class NoTasks:
+        def read_all_tasks(self):
+            return []
+
+    predictor = TaskPredictor(db_manager=NoTasks(), strategy="split", use_fallback=False)
+    assert predictor._split_predictor.fallback_only is expected
+    assert (predictor._split_predictor.fallback is not None) is expected
+
+
+@pytest.mark.unit
+def test_split_prediction_is_logged_for_the_evaluation(caplog):
+    predictor = TaskPredictor(db_manager=FakeDB(), strategy="split")
+
+    with caplog.at_level("INFO", logger="src.dag_prediction.task_predictor"):
+        prediction = predictor.predict_next_task_execution("Task_1", "dag_1")
+
+    lines = [r.getMessage() for r in caplog.records if r.getMessage().startswith("KAIROS_PREDICTION ")]
+    assert len(lines) == 1
+    logged = json.loads(lines[0].split(" ", 1)[1])
+    assert (logged["dag_id"], logged["task_id"]) == ("dag_1", "Task_1")
+    assert logged["predicted_provider"] == prediction.predicted_provider_id
+    assert logged["predicted_time"] == prediction.predicted_next_access.isoformat()
+    assert datetime.fromisoformat(logged["made_at"]).tzinfo is not None

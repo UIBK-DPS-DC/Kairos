@@ -63,6 +63,11 @@ docs/_build/
 .env
 .env.local
 
+# credentials and local results
+*tokens.json
+data/
+logs-from-*.log
+
 # structure not to put in image
 usecases/
 docs/
