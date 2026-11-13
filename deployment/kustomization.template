@@ -7,4 +7,5 @@ resources:
   - configmap.yaml
   - persistent_volume_claim.yaml
   - serviceaccount.yaml
+  - zenoh_router.yaml
 

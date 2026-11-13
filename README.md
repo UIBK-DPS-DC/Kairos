@@ -63,7 +63,7 @@ Kairos only sees what the tasks report. Tasks must access Onedata through [oneda
 
 **Zenoh (only for task-level optimization)**
 - With `OPTIMIZATION_LEVEL=task`, Kairos reacts to task-completion interrupts published as JSON (`{"dag_id": ..., "task_id": ..., "task_start": ...}`) on the Zenoh key `airflow_interrupts`.
-- Kairos opens Zenoh with its default configuration, which discovers peers via multicast. If multicast does not work between your pods, run a Zenoh router that both the publisher and Kairos can reach.
+- Multicast scouting does not reach other pods, so in Kubernetes Kairos and the publisher connect to a Zenoh router (`deployment/zenoh_router.template`), set with `ZENOH_CONNECT`. Without it, Kairos discovers peers via multicast.
 - With the default `OPTIMIZATION_LEVEL=dag`, no interrupts are needed.
 
 ### 2. Configure provider prices
@@ -149,6 +149,7 @@ On startup Kairos logs that the configuration, the SQLite database and the Oneda
 | `AIRFLOW_USERNAME`, `AIRFLOW_PASSWORD` | yes | | Airflow credentials |
 | `DATABASE_URL` | no | `/data/kairos.sqlite3` | SQLite database path (`--db-path` takes precedence) |
 | `OPTIMIZATION_LEVEL` | no | `dag` | `dag` plans per DAG run, `task` also reacts to task interrupts |
+| `ZENOH_CONNECT` | no | | Zenoh router endpoint for the task interrupts, e.g. `tcp/zenoh-router:7447`; empty = multicast scouting |
 | `MONITOR_LOOKBACK` | no | `5` | Minutes of Prometheus history queried per cycle |
 | `PAIRWISE_LATENCY_REFRESH_CYCLES` | no | `10` | Cycles between provider-to-provider measurements, `0` = never |
 | `KAIROS_PRICE_CONFIG` | no | `src/data_placement/strategies/price_conf.json` | Provider price file |

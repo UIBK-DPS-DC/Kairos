@@ -498,6 +498,9 @@ class Kairos(IPlacement):
         else:
             logger.debug("Task-level optimization is not enabled. Skipping dynamic orchestration.")
             dynamic_orchestrated_budget = static_orchestrated_budget
+            # Wait out the horizon as with task level, so that both levels plan
+            # (and evict) at the same rate and differ only in the dynamic phase.
+            time.sleep(max(0.0, self.horizon_end_time - time.time()))
 
         return expanded_budget, static_orchestrated_budget, dynamic_orchestrated_budget
 

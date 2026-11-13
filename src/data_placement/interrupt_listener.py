@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import queue
 import threading
 from typing import Any, Callable, Dict
@@ -9,8 +10,24 @@ import zenoh
 logger = logging.getLogger(__name__)
 
 INTERRUPT_KEY = "airflow_interrupts"
+# Endpoint of a Zenoh router, e.g. "tcp/zenoh-router:7447".
+CONNECT_ENV = "ZENOH_CONNECT"
 
 InterruptHandler = Callable[[Dict[str, Any]], None]
+
+
+def zenoh_config() -> zenoh.Config:
+    """Client of the router in ZENOH_CONNECT, or else a peer that scouts by multicast.
+
+    Multicast scouting does not cross pod boundaries in Kubernetes, so there
+    the predictor and Airflow have to meet at a router.
+    """
+    config = zenoh.Config()
+    endpoint = os.getenv(CONNECT_ENV, "").strip()
+    if endpoint:
+        config.insert_json5("mode", json.dumps("client"))
+        config.insert_json5("connect/endpoints", json.dumps([endpoint]))
+    return config
 
 
 class InterruptListener:
@@ -28,7 +45,7 @@ class InterruptListener:
 
     def __init__(self, key_expr: str = INTERRUPT_KEY, session_factory=None):
         self._key_expr = key_expr
-        self._session_factory = session_factory or (lambda: zenoh.open(zenoh.Config()))
+        self._session_factory = session_factory or (lambda: zenoh.open(zenoh_config()))
         self._handlers: Dict[str, InterruptHandler] = {}
         self._lock = threading.Lock()
         self._queue: "queue.Queue[Any]" = queue.Queue()
@@ -41,7 +58,11 @@ class InterruptListener:
         self._worker.start()
         self._session = self._session_factory()
         self._subscriber = self._session.declare_subscriber(self._key_expr, self._receive)
-        logger.info("Listening for Airflow interrupts on '%s'", self._key_expr)
+        logger.info(
+            "Listening for Airflow interrupts on '%s' via %s",
+            self._key_expr,
+            os.getenv(CONNECT_ENV) or "multicast scouting",
+        )
         return self
 
     def stop(self) -> None:

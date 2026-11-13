@@ -117,3 +117,25 @@ def test_interrupt_replicates_dynamic_files_by_vcr_within_the_cycle_budget():
 
     assert _replicated(kairos) == ["id_out1"]
     assert budget["remaining"] == pytest.approx(0.5)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("level", ["dag", "task"])
+def test_both_levels_wait_out_the_horizon(monkeypatch, level):
+    kairos = _kairos()
+    kairos.get_static_dynamic_semiDynamic_file_paths = MagicMock(return_value={})
+    kairos.budget_expansion = MagicMock(return_value=0.0)
+    kairos._static_file_ids = MagicMock(return_value=set())
+    kairos.static_orchestration = MagicMock(return_value=0.0)
+    kairos.db_manager = MagicMock()
+    monkeypatch.setattr(kairos_module, "TaskPredictor", MagicMock())
+    # The task level waits inside the dynamic orchestration.
+    kairos.dynamic_orchestration = lambda *args: kairos_module.time.sleep(
+        max(0.0, kairos.horizon_end_time - kairos_module.time.time())
+    )
+    slept = []
+    monkeypatch.setattr(kairos_module.time, "sleep", slept.append)
+
+    kairos.apply_placement(MagicMock(dag_id="dag"), horizon_time_seconds=60, optimization_level=level)
+
+    assert len(slept) == 1 and slept[0] == pytest.approx(60, abs=1)

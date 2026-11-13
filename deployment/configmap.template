@@ -23,6 +23,8 @@ data:
 
   # Application defaults (override via env or CLI flags)
   OPTIMIZATION_LEVEL: "dag"  # dag | task (task also reacts to Zenoh task interrupts)
+  # Zenoh router for the task interrupts (deployment/zenoh_router.template); empty = multicast scouting
+  ZENOH_CONNECT: "tcp/zenoh-router:7447"
   MONITOR_LOOKBACK: "5"      # minutes of history to query
   PAIRWISE_LATENCY_REFRESH_CYCLES: "10"  # cycles between provider-to-provider latency measurements; 0 = never
   # Fixed network values instead of probes (path inside the image); remove to measure the network

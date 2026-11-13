@@ -1,0 +1,131 @@
+---
+# Deployment: placement worker predicting with the pretrained model only — TEMPLATE
+#
+# Started by the evaluation batch (evaluation.batch_runner); stays at 0 replicas otherwise.
+#
+# Copy this file to worker_job.yaml and adjust image tag and arguments.
+# worker_job.yaml is excluded from git via .gitignore (deployment/*.yaml).
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: predictor-placement-worker-pretrained
+  namespace: default   # Change if deploying to a different namespace
+  labels:
+    app: predictor
+    component: placement-pretrained
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: predictor
+      component: placement-pretrained
+  template:
+    metadata:
+      labels:
+        app: predictor
+        component: placement-pretrained
+    spec:
+      serviceAccountName: predictor
+      # Same node as predictor-placement-worker, so both variants are comparable
+      nodeSelector:
+        kubernetes.io/hostname: node1
+
+      # Restart policy must be Always for a Deployment
+      restartPolicy: Always
+
+      containers:
+      - name: predictor
+        # Replace with your image / registry if not using Docker Hub
+        image: <DOCKER_HUB_USER>/airflow-onedata-predictor:latest
+        imagePullPolicy: Always
+        
+        args:
+        - "--log-level"
+        - "INFO"
+        
+        # Environment variables from ConfigMap (non-sensitive defaults)
+        envFrom:
+        - configMapRef:
+            name: predictor-config
+        
+        # Sensitive values injected from Secret
+        env:
+        # Never retrain on the current data, whatever the ConfigMap says
+        - name: KAIROS_FALLBACK_ONLY
+          value: "true"
+        # In the emptyDir, so every new pod starts with an empty database
+        - name: DATABASE_URL
+          value: "/tmp/kairos.sqlite3"
+        - name: ONEDATA_SPACE_ID
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: space-id
+        - name: ONEDATA_TOKEN_PROVIDER
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: token-provider
+        - name: ONEDATA_TOKEN_ZONE
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: token-zone
+        - name: DEVNULL_SPACE_ID
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: devnull-space-id
+        - name: AIRFLOW_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: airflow-username
+        - name: AIRFLOW_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: airflow-password
+        - name: AIRFLOW_API_SERVICE
+          valueFrom:
+            secretKeyRef:
+              name: predictor-secrets
+              key: airflow-api-service
+
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+
+        startupProbe:
+          exec:
+            command:
+            - python
+            - "-c"
+            - "from src.main import main; print('OK')"
+          initialDelaySeconds: 5
+          failureThreshold: 3
+          periodSeconds: 5
+          timeoutSeconds: 15
+
+      volumes:
+      - name: tmp
+        emptyDir: {}
+

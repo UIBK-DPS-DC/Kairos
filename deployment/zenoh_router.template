@@ -1,0 +1,67 @@
+---
+# Deployment + Service: Zenoh router — TEMPLATE
+#
+# Copy this file to zenoh_router.yaml and adjust the namespace.
+# With OPTIMIZATION_LEVEL=task, Airflow publishes task interrupts and the
+# placement worker subscribes to them. Multicast scouting does not reach other
+# pods, so both connect to this router (ZENOH_CONNECT in the ConfigMap).
+#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zenoh-router
+  namespace: default   # Change if deploying to a different namespace
+  labels:
+    app: predictor
+    component: zenoh-router
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: predictor
+      component: zenoh-router
+  template:
+    metadata:
+      labels:
+        app: predictor
+        component: zenoh-router
+    spec:
+      containers:
+      - name: zenohd
+        # Same version as eclipse-zenoh in requirements.txt
+        image: eclipse/zenoh:1.9.0
+        args:
+        - "--listen"
+        - "tcp/[::]:7447"
+        - "--no-multicast-scouting"
+        ports:
+        - name: zenoh
+          containerPort: 7447
+        readinessProbe:
+          tcpSocket:
+            port: zenoh
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zenoh-router
+  namespace: default   # Change if deploying to a different namespace
+  labels:
+    app: predictor
+    component: zenoh-router
+spec:
+  selector:
+    app: predictor
+    component: zenoh-router
+  ports:
+  - name: zenoh
+    port: 7447
+    targetPort: zenoh

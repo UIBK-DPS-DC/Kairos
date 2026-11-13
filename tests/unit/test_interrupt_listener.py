@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from src.data_placement.interrupt_listener import InterruptListener
+from src.data_placement.interrupt_listener import InterruptListener, zenoh_config
 from src.data_placement.strategies.Kairos import Kairos
 
 
@@ -93,3 +93,17 @@ def test_kairos_keeps_serving_interrupts_after_its_horizon():
     kairos._on_interrupt.assert_called_once_with(
         {"task_id": "t1"}, {"p": 1}, {"f": 2}, 0, {"remaining": float("inf")}
     )
+
+
+@pytest.mark.unit
+def test_zenoh_connects_to_the_configured_router(monkeypatch):
+    monkeypatch.setenv("ZENOH_CONNECT", "tcp/zenoh-router:7447")
+    config = json.loads(str(zenoh_config()))
+    assert config["mode"] == "client"
+    assert config["connect"]["endpoints"] == ["tcp/zenoh-router:7447"]
+
+
+@pytest.mark.unit
+def test_zenoh_scouts_as_a_peer_without_a_router(monkeypatch):
+    monkeypatch.delenv("ZENOH_CONNECT", raising=False)
+    assert json.loads(str(zenoh_config())).get("mode") in (None, "peer")
